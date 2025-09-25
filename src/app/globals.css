@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* Custom styles for ECA Health App v2.0 */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    background: var(--bg-color);
+    color: var(--text-color);
+  }
+  
+  /* Dark mode styles */
+  .dark body {
+    background: #111827;
+    color: #f9fafb;
+  }
+  
+  .dark {
+    color-scheme: dark;
+  }
+  
+  /* CSS custom properties for dark mode and color customization */
+  :root {
+    --bg-color: #f9fafb;
+    --text-color: #111827;
+    --primary-color: #3B82F6;
+    --secondary-color: #6B7280;
+    --accent-color: #10B981;
+  }
+  
+  .dark {
+    --bg-color: #111827;
+    --text-color: #f9fafb;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 text-white rounded-lg transition-colors font-medium;
+    background-color: var(--primary-color);
+  }
+  
+  .btn-primary:hover {
+    filter: brightness(0.9);
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+  
+  .metric-card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow;
+  }
+  
+  .status-green {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-red {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .gradient-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600;
+  }
+  
+  .gradient-success {
+    @apply bg-gradient-to-r from-green-500 to-blue-500;
+  }
+  
+  .gradient-warning {
+    @apply bg-gradient-to-r from-yellow-500 to-orange-500;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-bounce-slow {
+    animation: bounce 2s infinite;
+  }
+  
+}
+
