@@ -27,3 +27,4 @@ export default function ColorApplier() {
 
   return null; // This component doesn't render anything
 }
+

@@ -368,3 +368,4 @@ export default function ChallengeCreationModal({ isOpen, onClose, onSave }: Chal
     </div>
   );
 }
+

@@ -599,3 +599,4 @@ function ExerciseModal({ exercise, onSave, onCancel, muscleGroups, equipmentOpti
   );
 }
 
+

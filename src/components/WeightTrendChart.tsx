@@ -186,3 +186,4 @@ export default function WeightTrendChart({ bodyMetrics, className = '' }: Weight
   );
 }
 
+

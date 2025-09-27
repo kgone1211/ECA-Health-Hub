@@ -143,3 +143,4 @@ For issues with Whop integration:
 4. Test with Whop's development tools
 
 For Whop-specific issues, consult the [Whop Developer Documentation](https://docs.whop.com/).
+

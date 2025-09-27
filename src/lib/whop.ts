@@ -134,3 +134,4 @@ export function getWhopCompanyFromUrl(): string | null {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('companyId') || urlParams.get('whop_company_id') || urlParams.get('company_id');
 }
+
