@@ -79,11 +79,7 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <div className="flex items-center flex-shrink-0">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
-                <span className="text-white font-bold text-sm">E</span>
-              </div>
-            </div>
+            {/* Empty space for alignment */}
           </div>
 
           {/* Desktop Navigation */}
@@ -118,23 +114,6 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
               <div className="h-2 w-2 bg-yellow-500 dark:bg-yellow-400 rounded-full"></div>
               <span className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">1,250 pts</span>
             </div>
-            
-            {/* Dark Mode Toggle */}
-            <button 
-              onClick={toggleDarkMode}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode ? (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
             
             {/* Settings Button */}
             <button 
