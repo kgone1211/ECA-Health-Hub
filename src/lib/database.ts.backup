@@ -121,17 +121,6 @@ export class Database {
       console.error('Error getting sessions:', error);
       return [];
     }
-
-  async createSession(coachId: number, clientId: number, sessionDate: Date, durationMinutes: number = 60, sessionType?: string): Promise<Session | null> {
-    try {
-      const { data, error } = await db_client.from('sessions').insert({ coach_id: coachId, client_id: clientId, session_date: sessionDate.toISOString(), duration_minutes: durationMinutes, session_type: sessionType, status: 'scheduled' }).select().single();
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error creating session:', error);
-      return null;
-    }
-  }
   }
 
   // USER SETTINGS
@@ -185,6 +174,10 @@ export class Database {
       return { totalMetrics: 0, activeGoals: 0, totalSessions: 0, latestWeight: null, weightUnit: 'lbs' };
     }
   }
+}
+
+export const db = new Database();
+
   // ============= COACH-SPECIFIC OPERATIONS =============
   
   // Get all clients for a specific coach
