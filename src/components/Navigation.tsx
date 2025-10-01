@@ -8,11 +8,28 @@ import MobileNavigation from './MobileNavigation';
 interface NavigationProps {
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
+  userName?: string;
+  userEmail?: string;
 }
 
-export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: NavigationProps) {
+export default function Navigation({ isSettingsOpen, setIsSettingsOpen, userName, userEmail }: NavigationProps) {
   const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Get user initials from name or email
+  const getUserInitials = () => {
+    if (userName) {
+      const nameParts = userName.split(' ');
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      }
+      return userName.substring(0, 2).toUpperCase();
+    }
+    if (userEmail) {
+      return userEmail.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
 
   // Initialize dark mode on mount
   useEffect(() => {
@@ -126,8 +143,12 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
               </svg>
             </button>
             
-                   <div className="h-9 w-9 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
-              <span className="text-white text-sm font-bold">JS</span>
+            <div 
+              className="h-9 w-9 rounded-full flex items-center justify-center shadow-sm" 
+              style={{ backgroundColor: 'var(--primary-color)' }}
+              title={userName || userEmail || 'User'}
+            >
+              <span className="text-white text-sm font-bold">{getUserInitials()}</span>
             </div>
           </div>
         </div>

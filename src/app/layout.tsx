@@ -2,7 +2,7 @@
 
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navigation from '@/components/Navigation'
 import SettingsModal from '@/components/SettingsModal'
 import ColorApplier from '@/components/ColorApplier'
@@ -17,6 +17,18 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [userName, setUserName] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
+
+  useEffect(() => {
+    // TODO: Get from auth context/session
+    // For now, use placeholder or localStorage
+    const storedUser = localStorage.getItem('user_name') || 'Coach';
+    const storedEmail = localStorage.getItem('user_email') || '';
+    setUserName(storedUser);
+    setUserEmail(storedEmail);
+  }, []);
+
   return (
     <html lang="en">
       <head>
@@ -39,7 +51,9 @@ export default function RootLayout({
             {/* Navigation */}
             <Navigation 
               isSettingsOpen={isSettingsOpen} 
-              setIsSettingsOpen={setIsSettingsOpen} 
+              setIsSettingsOpen={setIsSettingsOpen}
+              userName={userName}
+              userEmail={userEmail}
             />
           
             {/* Main Content */}
