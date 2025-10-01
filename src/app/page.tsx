@@ -1,51 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { 
   Activity, 
   Users, 
   Calendar, 
   Target,
   Award,
-  Plus,
-  Bell
+  Bell,
+  Heart,
+  TrendingUp,
 } from 'lucide-react';
-import { db } from '@/lib/database';
-import { User } from '@/types';
-import MarchPhaseCard from '@/components/MarchPhaseCard';
 
 export default function Dashboard() {
-  const [user] = useState<User | null>(db.getUserById('1') || null); // Coach user
-  const clients = db.getUsersByCoachId('1');
-  const totalPoints = db.getUserPoints('1');
-  const streaks = db.getUserStreaks('1');
-
   const stats = [
     {
       title: 'Active Clients',
-      value: clients.filter(c => c.isActive).length,
+      value: 0,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100'
     },
     {
-      title: 'Total Check-ins',
-      value: 47,
+      title: 'Total Sessions',
+      value: 0,
       icon: Calendar,
       color: 'text-green-600',
       bgColor: 'bg-green-100'
     },
     {
-      title: 'Points Earned',
-      value: totalPoints,
-      icon: Award,
+      title: 'Health Metrics',
+      value: 0,
+      icon: Heart,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100'
     },
     {
-      title: 'Current Streak',
-      value: streaks.find(s => s.type === 'journal')?.current || 0,
+      title: 'Active Goals',
+      value: 0,
       icon: Target,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100'
@@ -55,30 +47,11 @@ export default function Dashboard() {
   const recentActivities = [
     {
       id: '1',
-      type: 'check_in',
-      client: 'John Smith',
-      message: 'Completed weekly health check-in',
-      time: '2 hours ago',
-      icon: Calendar,
-      color: 'text-green-600'
-    },
-    {
-      id: '2',
-      type: 'journal',
-      client: 'Emma Davis',
-      message: 'Logged daily journal entry',
-      time: '4 hours ago',
+      type: 'session',
+      message: 'No recent activity',
+      time: '',
       icon: Activity,
-      color: 'text-blue-600'
-    },
-    {
-      id: '3',
-      type: 'achievement',
-      client: 'John Smith',
-      message: 'Earned "Consistency King" badge',
-      time: '1 day ago',
-      icon: Award,
-      color: 'text-purple-600'
+      color: 'text-gray-400'
     }
   ];
 
@@ -100,11 +73,11 @@ export default function Dashboard() {
               <div className="flex items-center space-x-3">
                 <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {user?.name.split(' ').map(n => n[0]).join('')}
+                    CH
                   </span>
                 </div>
                 <span className="text-sm font-medium text-gray-700">
-                  {user?.name}
+                  Coach
                 </span>
               </div>
             </div>
@@ -116,7 +89,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name.split(' ')[0]}!
+            Welcome back, Coach!
           </h2>
           <p className="text-lg text-gray-600">
             Here&apos;s what&apos;s happening with your clients today. (Version 2.0)
@@ -140,29 +113,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* M.A.R.C.H. Phase Detection */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">M.A.R.C.H. Phase Detection</h2>
-            <a 
-              href="/march-phase"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              View History →
-            </a>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {clients.slice(0, 2).map((client) => (
-              <MarchPhaseCard 
-                key={client.id} 
-                clientId={client.id}
-                clientName={client.name}
-                className="h-full"
-              />
-            ))}
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Recent Activities */}
           <div className="lg:col-span-2">
@@ -178,14 +128,11 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900">
-                        {activity.client}
-                      </p>
-                      <p className="text-sm text-gray-600">
                         {activity.message}
                       </p>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {activity.time}
+                      <p className="text-sm text-gray-600">
+                        {activity.time}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -199,44 +146,28 @@ export default function Dashboard() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  <Plus className="h-5 w-5 mr-2" />
-                  New Check-in Form
+                  <Users className="h-5 w-5 mr-2" />
+                  Add New Client
                 </button>
                 <button className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                   <Calendar className="h-5 w-5 mr-2" />
-                  Schedule Reminder
+                  Schedule Session
                 </button>
-                <Link href="/challenges" className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <button className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
                   <Target className="h-5 w-5 mr-2" />
-                  Create Challenge
-                </Link>
+                  Set New Goal
+                </button>
               </div>
             </div>
 
-            {/* Client Health Overview */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Health Overview</h3>
-              <div className="space-y-4">
-                {clients.slice(0, 3).map((client) => (
-                  <div key={client.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-8 w-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-gray-600 text-sm font-medium">
-                          {client.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{client.name}</p>
-                        <p className="text-xs text-gray-500">Last active: 2 hours ago</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                      <span className="text-xs text-gray-500">Good</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* System Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">Database Ready</h3>
+              <p className="text-sm text-blue-800">
+                Your Supabase database is configured and ready. Use the API endpoints in 
+                <code className="mx-1 px-1 bg-blue-100 rounded">/api/test-db</code> and 
+                <code className="mx-1 px-1 bg-blue-100 rounded">/api/test-coach-isolation</code> to verify functionality.
+              </p>
             </div>
           </div>
         </div>
@@ -245,3 +176,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
