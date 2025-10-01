@@ -1,4 +1,4 @@
-# ECA Health Hub v2.0
+# EFH Health Hub v2.0
 
 A comprehensive health coaching platform built with Next.js 15, featuring M.A.R.C.H. phase detection, gamification, and client management.
 

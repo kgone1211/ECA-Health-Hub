@@ -5,7 +5,7 @@ dotenv.config({ path: '.env.local' });
 import { db } from './src/lib/database';
 
 async function testDatabase() {
-  console.log('🧪 Testing ECA Health Hub Database...\n');
+  console.log('🧪 Testing EFH Health Hub Database...\n');
 
   try {
     // Test 1: Create a test user

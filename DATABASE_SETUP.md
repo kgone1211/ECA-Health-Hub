@@ -1,4 +1,4 @@
-# ECA Health Hub - Database Setup Guide
+# EFH Health Hub - Database Setup Guide
 
 ## ✅ Completed Steps
 

@@ -85,7 +85,7 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
               </div>
               <div>
                 <h1 className="text-lg font-bold" style={{ color: isDarkMode ? '#ffffff' : '#111827' }}>
-                  ECA Health Hub
+                  EFH Health Hub
                 </h1>
                 <p className="text-xs font-medium" style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}>v2.0</p>
               </div>

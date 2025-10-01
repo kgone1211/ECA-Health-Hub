@@ -1,6 +1,6 @@
 # Whop Integration Setup Guide
 
-This guide will help you set up the ECA Health Hub v2.0 app for deployment on the Whop platform.
+This guide will help you set up the EFH Health Hub v2.0 app for deployment on the Whop platform.
 
 ## Environment Variables
 

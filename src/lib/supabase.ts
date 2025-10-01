@@ -1,4 +1,4 @@
-// Supabase client configuration for ECA Health Hub
+// Supabase client configuration for EFH Health Hub
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

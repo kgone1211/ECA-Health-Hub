@@ -1,4 +1,4 @@
-// Database helper functions for ECA Health Hub
+// Database helper functions for EFH Health Hub
 import { supabase, supabaseAdmin, User, HealthMetric, Goal, Session, UserSettings } from './supabase';
 
 // Use admin client for server-side operations to bypass RLS
