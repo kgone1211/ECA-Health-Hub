@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Activity, 
   Users, 
@@ -11,8 +11,16 @@ import {
   Heart,
   TrendingUp,
 } from 'lucide-react';
+import AddClientModal from '@/components/AddClientModal';
+import SetGoalModal from '@/components/SetGoalModal';
+import ChallengeCreationModal from '@/components/ChallengeCreationModal';
 
 export default function Dashboard() {
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [showSetGoal, setShowSetGoal] = useState(false);
+  const [showCreateChallenge, setShowCreateChallenge] = useState(false);
+  
+  const coachId = 1; // TODO: Get from auth context
   const stats = [
     {
       title: 'Active Clients',
@@ -147,15 +155,24 @@ export default function Dashboard() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <button 
+                  onClick={() => setShowAddClient(true)}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
                   <Users className="h-5 w-5 mr-2" />
                   Add New Client
                 </button>
-                <button className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Schedule Session
+                <button 
+                  onClick={() => setShowCreateChallenge(true)}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Award className="h-5 w-5 mr-2" />
+                  Create Challenge
                 </button>
-                <button className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <button 
+                  onClick={() => setShowSetGoal(true)}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
                   <Target className="h-5 w-5 mr-2" />
                   Set New Goal
                 </button>
@@ -165,8 +182,30 @@ export default function Dashboard() {
         </div>
       </main>
 
+      {/* Modals */}
+      <AddClientModal 
+        isOpen={showAddClient} 
+        onClose={() => setShowAddClient(false)} 
+        coachId={coachId}
+      />
+      <SetGoalModal 
+        isOpen={showSetGoal} 
+        onClose={() => setShowSetGoal(false)} 
+        coachId={coachId}
+      />
+      <ChallengeCreationModal 
+        isOpen={showCreateChallenge} 
+        onClose={() => setShowCreateChallenge(false)} 
+        onSave={(challenge) => {
+          // TODO: Save challenge to database
+          console.log('Challenge created:', challenge);
+          alert('Challenge created successfully!');
+        }}
+      />
     </div>
   );
 }
+
+
 
 
