@@ -1,5 +1,5 @@
 // Database helper functions for EFH Health Hub
-import { supabase, supabaseAdmin, User, HealthMetric, Goal, Session, UserSettings } from './supabase';
+import { supabase, supabaseAdmin, User, HealthMetric, Goal, Session, UserSettings, Achievement, UserAchievement, UserPoints, PointsTransaction, Challenge, UserChallenge, Streak } from './supabase';
 
 // Use admin client for server-side operations to bypass RLS
 const db_client = supabaseAdmin;
@@ -333,6 +333,411 @@ export class Database {
       console.error('Error creating coach profile:', error);
       return false;
     }
+  }
+
+  // ============= GAMIFICATION OPERATIONS =============
+  
+  // POINTS & LEVELS
+  async getUserPoints(userId: number): Promise<UserPoints | null> {
+    try {
+      const { data, error } = await db_client
+        .from('user_points')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error && error.code === 'PGRST116') {
+        // Create initial points record
+        return await this.initializeUserPoints(userId);
+      }
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting user points:', error);
+      return null;
+    }
+  }
+
+  async initializeUserPoints(userId: number): Promise<UserPoints | null> {
+    try {
+      const { data, error } = await db_client
+        .from('user_points')
+        .insert({
+          user_id: userId,
+          total_points: 0,
+          current_level: 1,
+          points_to_next_level: 50,
+          lifetime_points: 0
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error initializing user points:', error);
+      return null;
+    }
+  }
+
+  async addPoints(userId: number, points: number, reason: string, referenceType?: string, referenceId?: number): Promise<boolean> {
+    try {
+      // Add transaction record
+      await db_client.from('points_transactions').insert({
+        user_id: userId,
+        points,
+        reason,
+        reference_type: referenceType,
+        reference_id: referenceId
+      });
+
+      // Get current points
+      const userPoints = await this.getUserPoints(userId);
+      if (!userPoints) return false;
+
+      const newTotalPoints = userPoints.total_points + points;
+      const newLifetimePoints = userPoints.lifetime_points + points;
+      const newLevel = this.calculateLevel(newTotalPoints);
+      const pointsToNext = this.pointsToNextLevel(newTotalPoints);
+
+      // Update points
+      const { error } = await db_client
+        .from('user_points')
+        .update({
+          total_points: newTotalPoints,
+          lifetime_points: newLifetimePoints,
+          current_level: newLevel,
+          points_to_next_level: pointsToNext,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Check for achievements
+      await this.checkAchievements(userId);
+
+      return true;
+    } catch (error) {
+      console.error('Error adding points:', error);
+      return false;
+    }
+  }
+
+  calculateLevel(totalPoints: number): number {
+    return Math.floor(Math.sqrt(totalPoints / 50)) + 1;
+  }
+
+  pointsToNextLevel(currentPoints: number): number {
+    const currentLevel = this.calculateLevel(currentPoints);
+    const nextLevel = currentLevel + 1;
+    const pointsForNextLevel = Math.pow(nextLevel - 1, 2) * 50;
+    return pointsForNextLevel - currentPoints;
+  }
+
+  async getPointsTransactions(userId: number, limit: number = 20): Promise<PointsTransaction[]> {
+    try {
+      const { data, error } = await db_client
+        .from('points_transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting points transactions:', error);
+      return [];
+    }
+  }
+
+  async getLeaderboard(limit: number = 10): Promise<any[]> {
+    try {
+      const { data, error } = await db_client
+        .from('user_points')
+        .select('*, user:user_id(id, username, full_name)')
+        .order('total_points', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting leaderboard:', error);
+      return [];
+    }
+  }
+
+  // ACHIEVEMENTS
+  async getAllAchievements(): Promise<Achievement[]> {
+    try {
+      const { data, error } = await db_client
+        .from('achievements')
+        .select('*')
+        .eq('is_active', true)
+        .order('points', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting achievements:', error);
+      return [];
+    }
+  }
+
+  async getUserAchievements(userId: number): Promise<UserAchievement[]> {
+    try {
+      const { data, error } = await db_client
+        .from('user_achievements')
+        .select('*, achievement:achievement_id(*)')
+        .eq('user_id', userId)
+        .order('earned_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting user achievements:', error);
+      return [];
+    }
+  }
+
+  async checkAchievements(userId: number): Promise<void> {
+    try {
+      // Get all achievements
+      const achievements = await this.getAllAchievements();
+      
+      // Get user's current achievements
+      const userAchievements = await this.getUserAchievements(userId);
+      const earnedIds = userAchievements.map(ua => ua.achievement_id);
+
+      for (const achievement of achievements) {
+        // Skip if already earned
+        if (earnedIds.includes(achievement.id)) continue;
+
+        // Check if requirement is met
+        let requirementMet = false;
+        
+        switch (achievement.requirement_type) {
+          case 'sessions_count':
+            const { count: sessionsCount } = await db_client
+              .from('sessions')
+              .select('*', { count: 'exact', head: true })
+              .or(`coach_id.eq.${userId},client_id.eq.${userId}`)
+              .eq('status', 'completed');
+            requirementMet = (sessionsCount || 0) >= achievement.requirement_value;
+            break;
+
+          case 'goals_completed':
+            const { count: goalsCount } = await db_client
+              .from('goals')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('status', 'completed');
+            requirementMet = (goalsCount || 0) >= achievement.requirement_value;
+            break;
+
+          case 'metrics_logged':
+            const { count: metricsCount } = await db_client
+              .from('health_metrics')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', userId);
+            requirementMet = (metricsCount || 0) >= achievement.requirement_value;
+            break;
+
+          case 'streak_days':
+            const streak = await this.getStreak(userId, 'metrics_logging');
+            requirementMet = streak ? streak.current_streak >= achievement.requirement_value : false;
+            break;
+        }
+
+        // Award achievement if requirement met
+        if (requirementMet) {
+          await this.awardAchievement(userId, achievement.id, achievement.points);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking achievements:', error);
+    }
+  }
+
+  async awardAchievement(userId: number, achievementId: number, points: number): Promise<boolean> {
+    try {
+      // Add achievement
+      await db_client.from('user_achievements').insert({
+        user_id: userId,
+        achievement_id: achievementId
+      });
+
+      // Award points
+      await this.addPoints(userId, points, 'achievement_earned', 'achievement', achievementId);
+
+      return true;
+    } catch (error) {
+      console.error('Error awarding achievement:', error);
+      return false;
+    }
+  }
+
+  // CHALLENGES
+  async getActiveChallenges(): Promise<Challenge[]> {
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await db_client
+        .from('challenges')
+        .select('*')
+        .eq('is_active', true)
+        .lte('start_date', now)
+        .gte('end_date', now)
+        .order('end_date', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting active challenges:', error);
+      return [];
+    }
+  }
+
+  async getUserChallenges(userId: number): Promise<UserChallenge[]> {
+    try {
+      const { data, error } = await db_client
+        .from('user_challenges')
+        .select('*, challenge:challenge_id(*)')
+        .eq('user_id', userId)
+        .order('joined_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting user challenges:', error);
+      return [];
+    }
+  }
+
+  async joinChallenge(userId: number, challengeId: number): Promise<boolean> {
+    try {
+      const { error } = await db_client
+        .from('user_challenges')
+        .insert({
+          user_id: userId,
+          challenge_id: challengeId,
+          current_progress: 0,
+          is_completed: false
+        });
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error joining challenge:', error);
+      return false;
+    }
+  }
+
+  async updateChallengeProgress(userId: number, challengeId: number, progress: number): Promise<boolean> {
+    try {
+      const { error } = await db_client
+        .from('user_challenges')
+        .update({
+          current_progress: progress
+        })
+        .eq('user_id', userId)
+        .eq('challenge_id', challengeId);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating challenge progress:', error);
+      return false;
+    }
+  }
+
+  // STREAKS
+  async getStreak(userId: number, streakType: 'daily_checkin' | 'metrics_logging' | 'session_attendance'): Promise<Streak | null> {
+    try {
+      const { data, error } = await db_client
+        .from('streaks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('streak_type', streakType)
+        .single();
+      
+      if (error && error.code === 'PGRST116') {
+        // Create initial streak
+        return await this.initializeStreak(userId, streakType);
+      }
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting streak:', error);
+      return null;
+    }
+  }
+
+  async initializeStreak(userId: number, streakType: string): Promise<Streak | null> {
+    try {
+      const { data, error } = await db_client
+        .from('streaks')
+        .insert({
+          user_id: userId,
+          streak_type: streakType,
+          current_streak: 0,
+          longest_streak: 0
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error initializing streak:', error);
+      return null;
+    }
+  }
+
+  async updateStreak(userId: number, streakType: string): Promise<boolean> {
+    try {
+      const streak = await this.getStreak(userId, streakType as any);
+      if (!streak) return false;
+
+      const today = new Date().toISOString().split('T')[0];
+      const lastActivity = streak.last_activity_date;
+
+      let newStreak = streak.current_streak;
+      
+      if (lastActivity === today) {
+        // Already updated today
+        return true;
+      } else if (lastActivity === this.getYesterday()) {
+        // Continuing streak
+        newStreak = streak.current_streak + 1;
+      } else {
+        // Streak broken
+        newStreak = 1;
+      }
+
+      const { error } = await db_client
+        .from('streaks')
+        .update({
+          current_streak: newStreak,
+          longest_streak: Math.max(newStreak, streak.longest_streak),
+          last_activity_date: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('streak_type', streakType);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error updating streak:', error);
+      return false;
+    }
+  }
+
+  private getYesterday(): string {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
   }
 }
 

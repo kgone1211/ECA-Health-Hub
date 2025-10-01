@@ -63,7 +63,9 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                {/* Logo or brand goes here */}
+                <h1 className="text-2xl font-bold text-gray-900">
+                  EFH Health Hub
+                </h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -92,7 +94,7 @@ export default function Dashboard() {
             Welcome back, Coach!
           </h2>
           <p className="text-lg text-gray-600">
-            Here&apos;s what&apos;s happening with your clients today. (Version 2.0)
+            Here&apos;s what&apos;s happening with your clients today.
           </p>
         </div>
 
@@ -159,16 +161,6 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-
-            {/* System Info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">Database Ready</h3>
-              <p className="text-sm text-blue-800">
-                Your Supabase database is configured and ready. Use the API endpoints in 
-                <code className="mx-1 px-1 bg-blue-100 rounded">/api/test-db</code> and 
-                <code className="mx-1 px-1 bg-blue-100 rounded">/api/test-coach-isolation</code> to verify functionality.
-              </p>
-            </div>
           </div>
         </div>
       </main>
@@ -176,4 +168,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
 

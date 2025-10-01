@@ -127,3 +127,83 @@ export interface ActivityLog {
   created_at: string;
 }
 
+// Gamification Types
+export interface Achievement {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  points: number;
+  category: 'milestone' | 'consistency' | 'performance' | 'social';
+  requirement_type: string;
+  requirement_value: number;
+  badge_color: 'blue' | 'purple' | 'gold' | 'silver' | 'bronze';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserAchievement {
+  id: number;
+  user_id: number;
+  achievement_id: number;
+  earned_at: string;
+  achievement?: Achievement;
+}
+
+export interface UserPoints {
+  id: number;
+  user_id: number;
+  total_points: number;
+  current_level: number;
+  points_to_next_level: number;
+  lifetime_points: number;
+  updated_at: string;
+}
+
+export interface PointsTransaction {
+  id: number;
+  user_id: number;
+  points: number;
+  reason: string;
+  reference_type?: string;
+  reference_id?: number;
+  created_at: string;
+}
+
+export interface Challenge {
+  id: number;
+  title: string;
+  description: string;
+  challenge_type: 'daily' | 'weekly' | 'monthly' | 'custom';
+  goal_type: 'sessions' | 'metrics' | 'streaks' | 'points';
+  goal_value: number;
+  points_reward: number;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_by?: number;
+  created_at: string;
+}
+
+export interface UserChallenge {
+  id: number;
+  user_id: number;
+  challenge_id: number;
+  current_progress: number;
+  is_completed: boolean;
+  completed_at?: string;
+  joined_at: string;
+  challenge?: Challenge;
+}
+
+export interface Streak {
+  id: number;
+  user_id: number;
+  streak_type: 'daily_checkin' | 'metrics_logging' | 'session_attendance';
+  current_streak: number;
+  longest_streak: number;
+  last_activity_date?: string;
+  updated_at: string;
+}
+

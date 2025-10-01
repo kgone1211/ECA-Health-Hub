@@ -83,12 +83,6 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
               <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
                 <span className="text-white font-bold text-sm">E</span>
               </div>
-              <div>
-                <h1 className="text-lg font-bold" style={{ color: isDarkMode ? '#ffffff' : '#111827' }}>
-                  EFH Health Hub
-                </h1>
-                <p className="text-xs font-medium" style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}>v2.0</p>
-              </div>
             </div>
           </div>
 
