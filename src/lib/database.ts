@@ -121,6 +121,7 @@ export class Database {
       console.error('Error getting sessions:', error);
       return [];
     }
+  }
 
   async createSession(coachId: number, clientId: number, sessionDate: Date, durationMinutes: number = 60, sessionType?: string): Promise<Session | null> {
     try {
@@ -131,7 +132,6 @@ export class Database {
       console.error('Error creating session:', error);
       return null;
     }
-  }
   }
 
   // USER SETTINGS

@@ -90,9 +90,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  ECA Health Hub v2.0
-                </h1>
+                {/* Logo or brand goes here */}
               </div>
             </div>
             <div className="flex items-center space-x-4">
