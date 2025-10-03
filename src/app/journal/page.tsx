@@ -130,6 +130,25 @@ export default function JournalPage() {
               />
             </div>
           </div>
+          
+          {/* Client Selector */}
+          <div className="flex items-center space-x-4 pb-4">
+            <label className="text-sm font-medium text-gray-700">Select Client:</label>
+            <select
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-500">
+              Viewing journal for {clients.find(c => c.id === userId)?.name}
+            </span>
+          </div>
         </div>
       </div>
 
