@@ -1,538 +1,429 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Edit3, 
-  Trash2, 
-  Copy,
-  Eye,
-  Users,
-  Clock,
-  Target,
-  Dumbbell,
-  Calendar,
-  TrendingUp
-} from 'lucide-react';
-import { db } from '@/lib/database';
-import { WorkoutTemplate } from '@/types';
-import WorkoutTemplateBuilder from '@/components/WorkoutTemplateBuilder';
+import React, { useState, useEffect } from 'react';
+import { Dumbbell, Plus, X, Users, Copy, Trash2 } from 'lucide-react';
+
+interface Client {
+  id: number;
+  name: string;
+}
+
+interface Exercise {
+  name: string;
+  sets: number;
+  reps: string;
+  rest_seconds?: number;
+  notes?: string;
+}
+
+interface WorkoutTemplate {
+  id?: number;
+  name: string;
+  description?: string;
+  exercises: Exercise[];
+  assigned_to?: number[];
+}
 
 export default function WorkoutsPage() {
-  const [selectedClientId, setSelectedClientId] = useState('2');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [difficultyFilter, setDifficultyFilter] = useState('all');
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | undefined>();
-  const [selectedClientName, setSelectedClientName] = useState('John Smith');
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [templateToAssign, setTemplateToAssign] = useState<WorkoutTemplate | null>(null);
-  const [assignToClients, setAssignToClients] = useState<string[]>([]);
+  const coachId = 1; // TODO: Get from auth
+  const [clients, setClients] = useState<Client[]>([]);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const clients = db.getUsersByCoachId('1');
-  const templates = db.getWorkoutTemplatesByCoach('1').filter(template => 
-    template.clientId === selectedClientId
-  );
-
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || template.category === categoryFilter;
-    const matchesDifficulty = difficultyFilter === 'all' || template.difficulty === difficultyFilter;
-    
-    return matchesSearch && matchesCategory && matchesDifficulty;
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    exercises: [{ name: '', sets: 3, reps: '10', rest_seconds: 60, notes: '' }],
+    assignedClients: [] as number[]
   });
 
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'strength', label: 'Strength Training' },
-    { value: 'cardio', label: 'Cardio' },
-    { value: 'hiit', label: 'HIIT' },
-    { value: 'yoga', label: 'Yoga' },
-    { value: 'pilates', label: 'Pilates' },
-    { value: 'functional', label: 'Functional' },
-    { value: 'sports', label: 'Sports' },
-    { value: 'other', label: 'Other' }
-  ];
+  useEffect(() => {
+    loadClients();
+    loadTemplates();
+  }, []);
 
-  const difficulties = [
-    { value: 'all', label: 'All Levels' },
-    { value: 'beginner', label: 'Beginner' },
-    { value: 'intermediate', label: 'Intermediate' },
-    { value: 'advanced', label: 'Advanced' }
-  ];
-
-  const handleCreateTemplate = () => {
-    setEditingTemplate(undefined);
-    setSelectedClientName(clients.find(c => c.id === selectedClientId)?.name || '');
-    setIsBuilderOpen(true);
-  };
-
-  const handleEditTemplate = (template: WorkoutTemplate) => {
-    setEditingTemplate(template);
-    setSelectedClientName(clients.find(c => c.id === template.clientId)?.name || '');
-    setIsBuilderOpen(true);
-  };
-
-  const handleSaveTemplate = (templateData: Omit<WorkoutTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingTemplate) {
-      db.updateWorkoutTemplate(editingTemplate.id, templateData);
-    } else {
-      db.createWorkoutTemplate(templateData);
-    }
-    setIsBuilderOpen(false);
-    setEditingTemplate(undefined);
-  };
-
-  const handleDeleteTemplate = (templateId: string) => {
-    if (confirm('Are you sure you want to delete this workout template?')) {
-      db.deleteWorkoutTemplate(templateId);
+  const loadClients = async () => {
+    try {
+      const response = await fetch(`/api/clients?coachId=${coachId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.clients || []);
+      }
+    } catch (error) {
+      console.error('Error loading clients:', error);
     }
   };
 
-  const handleAssignToClients = (template: WorkoutTemplate) => {
-    setTemplateToAssign(template);
-    setAssignToClients([]);
-    setShowAssignModal(true);
+  const loadTemplates = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/workout-templates?coachId=${coachId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates || []);
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveAssignments = () => {
-    if (templateToAssign && assignToClients.length > 0) {
-      assignToClients.forEach(clientId => {
-        const duplicatedTemplate = {
-          ...templateToAssign,
-          name: templateToAssign.name,
-          clientId: clientId,
-          coachId: '1'
-        };
-        delete (duplicatedTemplate as any).id;
-        delete (duplicatedTemplate as any).createdAt;
-        delete (duplicatedTemplate as any).updatedAt;
-        db.createWorkoutTemplate(duplicatedTemplate);
+  const addExercise = () => {
+    setFormData({
+      ...formData,
+      exercises: [...formData.exercises, { name: '', sets: 3, reps: '10', rest_seconds: 60, notes: '' }]
+    });
+  };
+
+  const removeExercise = (index: number) => {
+    setFormData({
+      ...formData,
+      exercises: formData.exercises.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateExercise = (index: number, field: string, value: any) => {
+    const newExercises = [...formData.exercises];
+    newExercises[index] = { ...newExercises[index], [field]: value };
+    setFormData({ ...formData, exercises: newExercises });
+  };
+
+  const toggleClientAssignment = (clientId: number) => {
+    setFormData({
+      ...formData,
+      assignedClients: formData.assignedClients.includes(clientId)
+        ? formData.assignedClients.filter(id => id !== clientId)
+        : [...formData.assignedClients, clientId]
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.name.trim()) {
+      alert('Please enter a template name');
+      return;
+    }
+
+    const validExercises = formData.exercises.filter(ex => ex.name.trim());
+    if (validExercises.length === 0) {
+      alert('Please add at least one exercise');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch('/api/workout-templates', {
+        method: editingTemplate ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingTemplate?.id,
+          coachId,
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+          exercises: validExercises,
+          assignedTo: formData.assignedClients.length > 0 ? formData.assignedClients : undefined
+        })
       });
-      
-      setShowAssignModal(false);
-      setTemplateToAssign(null);
-      setAssignToClients([]);
-      alert(`Template assigned to ${assignToClients.length} client(s)!`);
+
+      if (response.ok) {
+        alert(`Template ${editingTemplate ? 'updated' : 'created'} successfully!`);
+        setFormData({
+          name: '',
+          description: '',
+          exercises: [{ name: '', sets: 3, reps: '10', rest_seconds: 60, notes: '' }],
+          assignedClients: []
+        });
+        setShowForm(false);
+        setEditingTemplate(null);
+        loadTemplates();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Failed to save template');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const toggleClientSelection = (clientId: string) => {
-    if (assignToClients.includes(clientId)) {
-      setAssignToClients(assignToClients.filter(id => id !== clientId));
-    } else {
-      setAssignToClients([...assignToClients, clientId]);
-    }
+  const editTemplate = (template: WorkoutTemplate) => {
+    setFormData({
+      name: template.name,
+      description: template.description || '',
+      exercises: template.exercises.length > 0 ? template.exercises : [{ name: '', sets: 3, reps: '10', rest_seconds: 60, notes: '' }],
+      assignedClients: template.assigned_to || []
+    });
+    setEditingTemplate(template);
+    setShowForm(true);
   };
 
-  const handleDuplicateTemplate = (template: WorkoutTemplate) => {
-    const duplicatedTemplate = {
-      ...template,
-      name: `${template.name} (Copy)`,
-      clientId: selectedClientId,
-      coachId: '1'
-    };
-    delete (duplicatedTemplate as any).id;
-    delete (duplicatedTemplate as any).createdAt;
-    delete (duplicatedTemplate as any).updatedAt;
-    
-    db.createWorkoutTemplate(duplicatedTemplate);
-  };
+  const deleteTemplate = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this template?')) return;
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'strength': return Dumbbell;
-      case 'cardio': return TrendingUp;
-      case 'hiit': return Target;
-      case 'yoga': return Target;
-      case 'pilates': return Target;
-      case 'functional': return Target;
-      case 'sports': return Target;
-      default: return Dumbbell;
-    }
-  };
+    try {
+      const response = await fetch(`/api/workout-templates?id=${id}`, {
+        method: 'DELETE'
+      });
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-800';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
-      case 'advanced': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      if (response.ok) {
+        alert('Template deleted successfully!');
+        loadTemplates();
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      alert('Failed to delete template');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Workout Templates</h1>
-              <p className="text-sm text-gray-600">Create and manage workout templates for your clients</p>
+              <p className="text-sm text-gray-600">Create and assign workout programs to clients</p>
             </div>
             <button
-              onClick={handleCreateTemplate}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => {
+                setShowForm(!showForm);
+                if (showForm) {
+                  setEditingTemplate(null);
+                  setFormData({
+                    name: '',
+                    description: '',
+                    exercises: [{ name: '', sets: 3, reps: '10', rest_seconds: 60, notes: '' }],
+                    assignedClients: []
+                  });
+                }
+              }}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
-              <Plus className="h-5 w-5 mr-2" />
-              Create Template
+              {showForm ? <X className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />}
+              {showForm ? 'Cancel' : 'Create Template'}
             </button>
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Client Selection */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Client</h2>
-          <div className="max-w-xs">
-            <select
-              value={selectedClientId}
-              onChange={(e) => {
-                setSelectedClientId(e.target.value);
-                setSelectedClientName(clients.find(c => c.id === e.target.value)?.name || '');
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {showForm && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {editingTemplate ? 'Edit Template' : 'Create Workout Template'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Template Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Upper Body Strength"
+                    required
+                  />
+                </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search templates..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Focus on compound movements..."
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
-              <select
-                value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {difficulties.map(diff => (
-                  <option key={diff.value} value={diff.value}>
-                    {diff.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setCategoryFilter('all');
-                  setDifficultyFilter('all');
-                }}
-                className="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Clear Filters
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-blue-100">
-                <Dumbbell className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Templates</p>
-                <p className="text-2xl font-bold text-gray-900">{templates.length}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-green-100">
-                <Target className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Templates</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {templates.filter(t => t.isActive).length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-purple-100">
-                <Clock className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Avg Duration</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {templates.length > 0 
-                    ? Math.round(templates.reduce((sum, t) => sum + t.estimatedDuration, 0) / templates.length)
-                    : 0} min
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-orange-100">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {templates.filter(t => {
-                    const created = new Date(t.createdAt);
-                    const now = new Date();
-                    return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
-                  }).length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Exercises *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addExercise}
+                    className="text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    + Add Exercise
+                  </button>
+                </div>
 
-        {/* Templates Grid */}
-        {filteredTemplates.length === 0 ? (
+                <div className="space-y-3">
+                  {formData.exercises.map((exercise, index) => (
+                    <div key={index} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg">
+                      <input
+                        type="text"
+                        value={exercise.name}
+                        onChange={(e) => updateExercise(index, 'name', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Exercise name"
+                      />
+                      <input
+                        type="number"
+                        value={exercise.sets}
+                        onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value) || 3)}
+                        className="w-16 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Sets"
+                      />
+                      <input
+                        type="text"
+                        value={exercise.reps}
+                        onChange={(e) => updateExercise(index, 'reps', e.target.value)}
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Reps"
+                      />
+                      <input
+                        type="number"
+                        value={exercise.rest_seconds || ''}
+                        onChange={(e) => updateExercise(index, 'rest_seconds', parseInt(e.target.value) || undefined)}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        placeholder="Rest"
+                      />
+                      {formData.exercises.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeExercise(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign to Clients (Optional)
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {clients.map(client => (
+                    <label key={client.id} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.assignedClients.includes(client.id)}
+                        onChange={() => toggleClientAssignment(client.id)}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">{client.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingTemplate(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : editingTemplate ? 'Update Template' : 'Create Template'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Templates List */}
+        {loading ? (
           <div className="text-center py-12">
-            <Dumbbell className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No workout templates found</h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm || categoryFilter !== 'all' || difficultyFilter !== 'all'
-                ? 'Try adjusting your filters or search terms.'
-                : 'Create your first workout template to get started.'}
-            </p>
-            {!searchTerm && categoryFilter === 'all' && difficultyFilter === 'all' && (
-              <button
-                onClick={handleCreateTemplate}
-                className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Your First Template
-              </button>
-            )}
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            <p className="mt-2 text-gray-600">Loading templates...</p>
+          </div>
+        ) : templates.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+            <Dumbbell className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Templates Yet</h3>
+            <p className="text-gray-600 mb-4">Create your first workout template to assign to clients</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Create First Template
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => {
-              const CategoryIcon = getCategoryIcon(template.category);
-              return (
-                <div key={template.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 rounded-lg bg-blue-100">
-                          <CategoryIcon className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{template.name}</h3>
-                          <p className="text-sm text-gray-600">{template.category}</p>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(template.difficulty)}`}>
-                        {template.difficulty}
-                      </span>
-                    </div>
-
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {templates.map((template) => (
+              <div key={template.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{template.name}</h3>
                     {template.description && (
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                        {template.description}
-                      </p>
+                      <p className="text-sm text-gray-600 mt-1">{template.description}</p>
                     )}
-
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <div className="flex items-center space-x-4">
-                        <span className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {template.estimatedDuration} min
-                        </span>
-                        <span className="flex items-center">
-                          <Target className="h-4 w-4 mr-1" />
-                          {template.exercises.length} exercises
-                        </span>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        template.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {template.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1">
-                        {template.exercises.slice(0, 3).map((exercise) => (
-                          <span key={exercise.id} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                            {exercise.name}
-                          </span>
-                        ))}
-                        {template.exercises.length > 3 && (
-                          <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                            +{template.exercises.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
                   </div>
-
-                  <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
-                        Created {new Date(template.createdAt).toLocaleDateString()}
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleEditTemplate(template)}
-                          className="p-1 text-gray-400 hover:text-blue-600"
-                          title="Edit"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicateTemplate(template)}
-                          className="p-1 text-gray-400 hover:text-green-600"
-                          title="Duplicate"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleAssignToClients(template)}
-                          className="p-1 text-gray-400 hover:text-purple-600"
-                          title="Assign to Clients"
-                        >
-                          <Users className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTemplate(template.id)}
-                          className="p-1 text-gray-400 hover:text-red-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => editTemplate(template)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Edit"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => template.id && deleteTemplate(template.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="space-y-2 mb-4">
+                  {template.exercises.map((exercise, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm bg-gray-50 p-2 rounded">
+                      <span className="font-medium text-gray-900">{exercise.name}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-gray-600">{exercise.sets} × {exercise.reps}</span>
+                      {exercise.rest_seconds && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-gray-600">{exercise.rest_seconds}s rest</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {template.assigned_to && template.assigned_to.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 pt-3 border-t border-gray-200">
+                    <Users className="h-4 w-4" />
+                    <span>Assigned to {template.assigned_to.length} client{template.assigned_to.length !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </main>
-
-      {/* Workout Template Builder Modal */}
-      {isBuilderOpen && (
-        <WorkoutTemplateBuilder
-          clientId={selectedClientId}
-          clientName={selectedClientName}
-          onSave={handleSaveTemplate}
-          onCancel={() => {
-            setIsBuilderOpen(false);
-            setEditingTemplate(undefined);
-          }}
-          existingTemplate={editingTemplate}
-        />
-      )}
-
-      {/* Assign to Clients Modal */}
-      {showAssignModal && templateToAssign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Assign Template to Clients
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Template: <span className="font-semibold">{templateToAssign.name}</span>
-            </p>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Clients ({assignToClients.length} selected)
-              </label>
-              <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
-                {clients.filter(c => c.id !== selectedClientId).map((client) => (
-                  <label
-                    key={client.id}
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={assignToClients.includes(client.id)}
-                      onChange={() => toggleClientSelection(client.id)}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                    />
-                    <div className="flex items-center space-x-2">
-                      <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-medium">
-                          {client.name.split(' ').map((n: string) => n[0]).join('')}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{client.name}</span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Note: This will create a copy of the template for each selected client
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveAssignments}
-                disabled={assignToClients.length === 0}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Assign to {assignToClients.length} Client{assignToClients.length !== 1 ? 's' : ''}
-              </button>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false);
-                  setTemplateToAssign(null);
-                  setAssignToClients([]);
-                }}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-

@@ -1,105 +1,147 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   Plus, 
-  Edit, 
-  Trash2, 
   CheckCircle,
   Clock,
   Users,
-  BarChart3
+  BarChart3,
+  X,
+  Scale,
+  Activity,
+  Zap,
+  Moon
 } from 'lucide-react';
-import { db } from '@/lib/database';
-import { CheckInForm, CheckInSubmission } from '@/types';
-import FormBuilder from '@/components/FormBuilder';
+
+interface CheckIn {
+  id: number;
+  user_id: number;
+  check_in_date: string;
+  weight?: number;
+  energy_level?: number;
+  sleep_quality?: number;
+  mood?: number;
+  notes?: string;
+  created_at: string;
+}
 
 export default function CheckInsPage() {
-  const [coachId] = useState('1');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingForm, setEditingForm] = useState<CheckInForm | null>(null);
-  const [submissions, setSubmissions] = useState<CheckInSubmission[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const forms = db.getCheckInForms(coachId);
+  const [formData, setFormData] = useState({
+    userId: 1, // TODO: Get from auth context
+    weight: '',
+    energyLevel: '5',
+    sleepQuality: '5',
+    mood: '5',
+    notes: ''
+  });
 
-  const handleCreateForm = () => {
-    setShowCreateForm(true);
-  };
-
-  const handleEditForm = (form: CheckInForm) => {
-    setEditingForm(form);
-  };
-
-  const handleSaveForm = (formData: Omit<CheckInForm, 'id' | 'createdAt'>) => {
-    if (editingForm) {
-      // Update existing form
-      console.log('Updating form:', formData);
-    } else {
-      // Create new form
-      const newForm = db.createCheckInForm(formData);
-      console.log('Created new form:', newForm);
+  const stats = [
+    {
+      title: 'Total Check-ins',
+      value: checkIns.length,
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100'
+    },
+    {
+      title: 'This Week',
+      value: checkIns.filter(c => {
+        const checkInDate = new Date(c.check_in_date);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return checkInDate >= weekAgo;
+      }).length,
+      icon: Clock,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100'
+    },
+    {
+      title: 'Avg Energy',
+      value: checkIns.length > 0 
+        ? (checkIns.reduce((sum, c) => sum + (c.energy_level || 0), 0) / checkIns.length).toFixed(1)
+        : '0',
+      icon: Zap,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100'
+    },
+    {
+      title: 'Avg Sleep',
+      value: checkIns.length > 0
+        ? (checkIns.reduce((sum, c) => sum + (c.sleep_quality || 0), 0) / checkIns.length).toFixed(1)
+        : '0',
+      icon: Moon,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100'
     }
-    setShowCreateForm(false);
-    setEditingForm(null);
-  };
+  ];
 
-  const handleCancelForm = () => {
-    setShowCreateForm(false);
-    setEditingForm(null);
-  };
+  useEffect(() => {
+    loadCheckIns();
+  }, []);
 
-  const handleViewSubmissions = (formId: string) => {
-    // In a real app, this would fetch submissions from the database
-    setSubmissions([
-      {
-        id: '1',
-        userId: '2',
-        formId: formId,
-        submittedAt: new Date('2024-01-20T10:30:00'),
-        responses: [
-          { fieldId: '1', value: 8 },
-          { fieldId: '2', value: 7.5 },
-          { fieldId: '4', value: 180 }
-        ],
-        photos: [
-          {
-            id: '1',
-            type: 'front',
-            url: '/photos/progress-front.jpg',
-            date: new Date('2024-01-20')
-          }
-        ],
-        measurements: [
-          {
-            id: '1',
-            type: 'weight',
-            value: 180,
-            unit: 'lbs',
-            date: new Date('2024-01-20')
-          }
-        ]
+  const loadCheckIns = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/check-ins?userId=1'); // TODO: Dynamic user
+      if (response.ok) {
+        const data = await response.json();
+        setCheckIns(data.checkIns || []);
       }
-    ]);
-  };
-
-  const getFieldTypeIcon = (type: string) => {
-    switch (type) {
-      case 'text': return '📝';
-      case 'number': return '🔢';
-      case 'select': return '📋';
-      case 'checkbox': return '☑️';
-      case 'photo': return '📷';
-      case 'measurement': return '📏';
-      case 'symptom': return '🏥';
-      default: return '❓';
+    } catch (error) {
+      console.error('Error loading check-ins:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getFrequencyColor = (frequency: string) => {
-    return frequency === 'bi-weekly' 
-      ? 'bg-blue-100 text-blue-800' 
-      : 'bg-green-100 text-green-800';
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setSaving(true);
+    try {
+      const response = await fetch('/api/check-ins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: formData.userId,
+          weight: formData.weight ? parseFloat(formData.weight) : undefined,
+          energyLevel: parseInt(formData.energyLevel),
+          sleepQuality: parseInt(formData.sleepQuality),
+          mood: parseInt(formData.mood),
+          notes: formData.notes
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCheckIns([data.checkIn, ...checkIns]);
+        setFormData({
+          userId: 1,
+          weight: '',
+          energyLevel: '5',
+          sleepQuality: '5',
+          mood: '5',
+          notes: ''
+        });
+        setShowForm(false);
+        alert('Check-in saved successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving check-in:', error);
+      alert('Failed to save check-in');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -109,270 +151,238 @@ export default function CheckInsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Check-in Forms</h1>
-              <p className="text-sm text-gray-600">Create and manage client check-in forms</p>
+              <h1 className="text-2xl font-bold text-gray-900">Daily Check-ins</h1>
+              <p className="text-sm text-gray-600">Track your daily wellness metrics</p>
             </div>
             <button
-              onClick={handleCreateForm}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
-              <Plus className="h-5 w-5 mr-2" />
-              Create Form
+              {showForm ? <X className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />}
+              {showForm ? 'Cancel' : 'New Check-in'}
             </button>
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-blue-100">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Forms</p>
-                <p className="text-2xl font-bold text-gray-900">{forms.length}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Forms</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {forms.filter(f => f.isActive).length}
-                </p>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {stats.map((stat, index) => (
+            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-purple-100">
-                <Users className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Submissions</p>
-                <p className="text-2xl font-bold text-gray-900">47</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-orange-100">
-                <Clock className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
-                <p className="text-2xl font-bold text-gray-900">12</p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Forms List */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Your Check-in Forms</h3>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {forms.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No forms created yet</h3>
-                <p className="text-gray-600 mb-4">Create your first check-in form to start collecting client data.</p>
+        {/* Check-in Form */}
+        {showForm && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Daily Check-in</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Weight */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Scale className="inline h-4 w-4 mr-1" />
+                    Weight (lbs) - Optional
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.weight}
+                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Enter weight"
+                  />
+                </div>
+
+                {/* Energy Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Zap className="inline h-4 w-4 mr-1" />
+                    Energy Level (1-10)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={formData.energyLevel}
+                      onChange={(e) => setFormData({ ...formData, energyLevel: e.target.value })}
+                      className="flex-1"
+                    />
+                    <span className="text-2xl font-bold text-gray-900 w-12 text-center">
+                      {formData.energyLevel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sleep Quality */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Moon className="inline h-4 w-4 mr-1" />
+                    Sleep Quality (1-10)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={formData.sleepQuality}
+                      onChange={(e) => setFormData({ ...formData, sleepQuality: e.target.value })}
+                      className="flex-1"
+                    />
+                    <span className="text-2xl font-bold text-gray-900 w-12 text-center">
+                      {formData.sleepQuality}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mood */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Activity className="inline h-4 w-4 mr-1" />
+                    Mood (1-10)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={formData.mood}
+                      onChange={(e) => setFormData({ ...formData, mood: e.target.value })}
+                      className="flex-1"
+                    />
+                    <span className="text-2xl font-bold text-gray-900 w-12 text-center">
+                      {formData.mood}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="How are you feeling today? Any observations?"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
                 <button
-                  onClick={handleCreateForm}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  Create Your First Form
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Check-in'}
                 </button>
               </div>
-            ) : (
-              forms.map((form) => (
-                <div key={form.id} className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h4 className="text-lg font-medium text-gray-900">{form.name}</h4>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getFrequencyColor(form.frequency)}`}>
-                          {form.frequency === 'bi-weekly' ? 'Bi-weekly' : 'Monthly'}
-                        </span>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          form.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {form.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Created {form.createdAt.toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-2">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <span className="mr-1">{form.fields.length}</span>
-                          <span>fields</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <span className="mr-1">12</span>
-                          <span>submissions</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleViewSubmissions(form.id)}
-                        className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-gray-100"
-                        title="View Submissions"
-                      >
-                        <BarChart3 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleEditForm(form)}
-                        className="p-2 text-gray-400 hover:text-yellow-600 rounded-lg hover:bg-gray-100"
-                        title="Edit Form"
-                      >
-                        <Edit className="h-5 w-5" />
-                      </button>
-                      <button className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100" title="Delete Form">
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Form Fields Preview */}
-                  <div className="mt-4">
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">Form Fields:</h5>
-                    <div className="flex flex-wrap gap-2">
-                      {form.fields.map((field) => (
-                        <span
-                          key={field.id}
-                          className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs"
-                        >
-                          <span className="mr-1">{getFieldTypeIcon(field.type)}</span>
-                          {field.label}
-                          {field.required && <span className="ml-1 text-red-500">*</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Submissions Modal */}
-        {submissions.length > 0 && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Form Submissions</h3>
-                  <button
-                    onClick={() => setSubmissions([])}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="px-6 py-4">
-                <div className="space-y-6">
-                  {submissions.map((submission) => (
-                    <div key={submission.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-900">Submission</h4>
-                          <p className="text-sm text-gray-600">
-                            Submitted {submission.submittedAt.toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                          Completed
-                        </span>
-                      </div>
-                      
-                      {/* Responses */}
-                      <div className="space-y-3">
-                        <h5 className="text-sm font-medium text-gray-700">Responses:</h5>
-                        {submission.responses.map((response, index) => (
-                          <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100">
-                            <span className="text-sm text-gray-600">Field {response.fieldId}:</span>
-                            <span className="text-sm font-medium text-gray-900">{response.value}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Photos */}
-                      {submission.photos.length > 0 && (
-                        <div className="mt-4">
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Photos:</h5>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {submission.photos.map((photo) => (
-                              <div key={photo.id} className="relative">
-                                <img
-                                  src={photo.url}
-                                  alt={`Progress photo - ${photo.type}`}
-                                  className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                                />
-                                <span className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
-                                  {photo.type}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Measurements */}
-                      {submission.measurements.length > 0 && (
-                        <div className="mt-4">
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Measurements:</h5>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {submission.measurements.map((measurement) => (
-                              <div key={measurement.id} className="bg-gray-50 rounded-lg p-3">
-                                <p className="text-xs text-gray-600 capitalize">{measurement.type.replace('_', ' ')}</p>
-                                <p className="text-lg font-semibold text-gray-900">
-                                  {measurement.value} {measurement.unit}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            </form>
           </div>
         )}
 
-        {/* Form Builder Modal */}
-        {(showCreateForm || editingForm) && (
-          <FormBuilder
-            form={editingForm || undefined}
-            coachId={coachId}
-            onSave={handleSaveForm}
-            onCancel={handleCancelForm}
-          />
+        {/* Check-ins List */}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            <p className="mt-2 text-gray-600">Loading check-ins...</p>
+          </div>
+        ) : checkIns.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+            <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Check-ins Yet</h3>
+            <p className="text-gray-600 mb-4">Start tracking your daily wellness by completing your first check-in</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Create First Check-in
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {checkIns.map((checkIn) => (
+              <div key={checkIn.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {new Date(checkIn.check_in_date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Recorded at {new Date(checkIn.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {checkIn.weight && (
+                    <div className="flex items-center gap-2">
+                      <Scale className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Weight</p>
+                        <p className="text-lg font-semibold text-gray-900">{checkIn.weight} lbs</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-orange-500" />
+                    <div>
+                      <p className="text-sm text-gray-600">Energy</p>
+                      <p className="text-lg font-semibold text-gray-900">{checkIn.energy_level}/10</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Moon className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <p className="text-sm text-gray-600">Sleep</p>
+                      <p className="text-lg font-semibold text-gray-900">{checkIn.sleep_quality}/10</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-green-500" />
+                    <div>
+                      <p className="text-sm text-gray-600">Mood</p>
+                      <p className="text-lg font-semibold text-gray-900">{checkIn.mood}/10</p>
+                    </div>
+                  </div>
+                </div>
+
+                {checkIn.notes && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
+                    <p className="text-gray-600">{checkIn.notes}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </main>
     </div>

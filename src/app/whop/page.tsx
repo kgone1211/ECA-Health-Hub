@@ -58,7 +58,7 @@ export default function WhopPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl p-8 border border-white/20 shadow-xl text-center">
           <Loader2 className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Loading ECA Health Hub...</p>
+          <p className="text-gray-600 text-lg">Loading EFH Health Hub...</p>
         </div>
       </div>
     );
@@ -93,7 +93,7 @@ export default function WhopPage() {
                 <Heart className="h-6 w-6 text-white" />
               </div>
               <div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">ECA Health Hub</span>
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">EFH Health Hub</span>
                 <p className="text-sm text-gray-500">Health Coaching Platform</p>
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function WhopPage() {
             <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl p-8 border border-white/20 shadow-xl">
               <div className="text-center">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to ECA Health Hub!</h1>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to EFH Health Hub!</h1>
                 <p className="text-gray-600 text-lg mb-6">
                   Your comprehensive health coaching platform is ready to help you achieve your wellness goals.
                 </p>

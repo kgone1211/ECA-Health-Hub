@@ -1,355 +1,349 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Trophy, 
-  Award, 
-  Target, 
-  TrendingUp, 
-  Users, 
-  Star,
-  Zap,
-  Crown,
-  Medal,
-  Flame,
-  CheckCircle
-} from 'lucide-react';
-import { db } from '@/lib/database';
-import { Challenge } from '@/types';
-import ChallengeCreationModal from '@/components/ChallengeCreationModal';
+import { useState, useEffect } from 'react';
+import { Trophy, Award, Target, TrendingUp, Star, Zap, Users, Gift, Medal, Crown, Flame } from 'lucide-react';
+
+interface GamificationData {
+  points: {
+    total_points: number;
+    current_level: number;
+    points_to_next_level: number;
+    lifetime_points: number;
+  } | null;
+  achievements: any[];
+  challenges: any[];
+  transactions: any[];
+}
 
 export default function GamificationPage() {
-  const [userId] = useState('2');
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'achievements' | 'challenges'>('leaderboard');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'challenges' | 'leaderboard'>('overview');
+  const [data, setData] = useState<GamificationData | null>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const userPoints = db.getUserPoints(userId);
-  const userStreaks = db.getUserStreaks(userId);
-  const achievements = db.getAchievements();
-  const challenges = db.getAllChallenges();
+  // Mock user ID - in production, get from auth
+  const userId = 1;
 
-  // Mock leaderboard data
-  const leaderboardData = [
-    { rank: 1, name: 'Emma Davis', points: 1250, avatar: 'ED', streak: 15, isCurrentUser: false },
-    { rank: 2, name: 'John Smith', points: 1180, avatar: 'JS', streak: 12, isCurrentUser: true },
-    { rank: 3, name: 'Sarah Wilson', points: 1100, avatar: 'SW', streak: 10, isCurrentUser: false },
-    { rank: 4, name: 'Mike Chen', points: 950, avatar: 'MC', streak: 8, isCurrentUser: false },
-    { rank: 5, name: 'Lisa Brown', points: 890, avatar: 'LB', streak: 7, isCurrentUser: false }
-  ];
+  useEffect(() => {
+    loadGamificationData();
+  }, []);
 
+  const loadGamificationData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/gamification?userId=${userId}`);
+      const result = await response.json();
+      setData(result);
 
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1: return <Crown className="h-6 w-6 text-yellow-500" />;
-      case 2: return <Medal className="h-6 w-6 text-gray-400" />;
-      case 3: return <Award className="h-6 w-6 text-orange-500" />;
-      default: return <span className="text-lg font-bold text-gray-400">#{rank}</span>;
+      // Load leaderboard
+      const lbResponse = await fetch(`/api/gamification?userId=${userId}&action=leaderboard`);
+      const lbResult = await lbResponse.json();
+      setLeaderboard(lbResult.leaderboard || []);
+    } catch (error) {
+      console.error('Failed to load gamification data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const getBadgeColor = (color: string) => {
+    const colors: Record<string, string> = {
+      gold: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      silver: 'bg-gray-100 text-gray-800 border-gray-300',
+      bronze: 'bg-orange-100 text-orange-800 border-orange-300',
+      blue: 'bg-blue-100 text-blue-800 border-blue-300',
+      purple: 'bg-purple-100 text-purple-800 border-purple-300'
+    };
+    return colors[color] || 'bg-gray-100 text-gray-800 border-gray-300';
+  };
+
+  const getIconForCategory = (category: string) => {
+    const icons: Record<string, any> = {
+      milestone: Target,
+      consistency: Flame,
+      performance: TrendingUp,
+      social: Users
+    };
+    return icons[category] || Award;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Trophy className="h-12 w-12 text-purple-600 mx-auto mb-4 animate-bounce" />
+          <p className="text-gray-600">Loading gamification...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const levelProgress = data?.points 
+    ? ((data.points.total_points % 50) / 50) * 100 
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gamification Hub</h1>
-              <p className="text-sm text-gray-600">Track your progress, compete, and earn rewards</p>
+              <h1 className="text-3xl font-bold">Gamification</h1>
+              <p className="text-purple-100 mt-1">Track your progress and earn rewards</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-yellow-50 px-4 py-2 rounded-lg">
-                <Star className="h-5 w-5 text-yellow-500" />
-                <span className="text-sm font-medium text-yellow-800">{userPoints} points</span>
+            <div className="text-right">
+              <div className="flex items-center space-x-2">
+                <Crown className="h-8 w-8" />
+                <div>
+                  <p className="text-sm text-purple-100">Level</p>
+                  <p className="text-3xl font-bold">{data?.points?.current_level || 1}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Points Card */}
+          <div className="mt-6 bg-white/10 backdrop-blur rounded-2xl p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-purple-200 text-sm mb-1">Total Points</p>
+                <p className="text-3xl font-bold">{data?.points?.total_points?.toLocaleString() || 0}</p>
+              </div>
+              <div>
+                <p className="text-purple-200 text-sm mb-1">Lifetime Points</p>
+                <p className="text-3xl font-bold">{data?.points?.lifetime_points?.toLocaleString() || 0}</p>
+              </div>
+              <div>
+                <p className="text-purple-200 text-sm mb-1">Next Level</p>
+                <p className="text-xl font-bold mb-2">{data?.points?.points_to_next_level || 0} points</p>
+                <div className="w-full bg-white/20 rounded-full h-2">
+                  <div 
+                    className="bg-white h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${levelProgress}%` }}
+                  ></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8">
+            {[
+              { id: 'overview', name: 'Overview', icon: TrendingUp },
+              { id: 'achievements', name: 'Achievements', icon: Award },
+              { id: 'challenges', name: 'Challenges', icon: Target },
+              { id: 'leaderboard', name: 'Leaderboard', icon: Trophy }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <tab.icon className="h-5 w-5 mr-2" />
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-yellow-100">
-                <Star className="h-6 w-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Points</p>
-                <p className="text-2xl font-bold text-gray-900">{userPoints}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-orange-100">
-                <Flame className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Current Streak</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {userStreaks.find(s => s.type === 'journal')?.current || 0} days
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-purple-100">
-                <Award className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Achievements</p>
-                <p className="text-2xl font-bold text-gray-900">3/12</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-green-100">
-                <Trophy className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Rank</p>
-                <p className="text-2xl font-bold text-gray-900">#2</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { id: 'leaderboard', name: 'Leaderboard', icon: Trophy },
-                { id: 'achievements', name: 'Achievements', icon: Award },
-                { id: 'challenges', name: 'Challenges', icon: Target }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'leaderboard' | 'achievements' | 'challenges')}
-                  className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <tab.icon className="h-5 w-5 mr-2" />
-                  {tab.name}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'leaderboard' && (
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Weekly Leaderboard */}
+            {/* Recent Transactions */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Weekly Leaderboard</h3>
-                <p className="text-sm text-gray-600">Top performers this week</p>
+                <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
               </div>
               <div className="divide-y divide-gray-200">
-                {leaderboardData.map((user) => (
+                {data?.transactions && data.transactions.length > 0 ? (
+                  data.transactions.map((transaction: any) => (
+                    <div key={transaction.id} className="px-6 py-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Star className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {transaction.reason.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(transaction.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-600">+{transaction.points}</p>
+                        <p className="text-xs text-gray-500">points</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-6 py-8 text-center text-gray-500">
+                    <Star className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p>No activity yet. Start earning points!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Achievements Tab */}
+        {activeTab === 'achievements' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Your Achievements ({data?.achievements?.length || 0})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data?.achievements && data.achievements.length > 0 ? (
+                  data.achievements.map((ua: any) => {
+                    const achievement = ua.achievement;
+                    const Icon = getIconForCategory(achievement.category);
+                    return (
+                      <div
+                        key={ua.id}
+                        className={`p-4 border-2 rounded-xl ${getBadgeColor(achievement.badge_color)}`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="p-2 bg-white rounded-lg">
+                            <Icon className="h-6 w-6" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold">{achievement.name}</h4>
+                            <p className="text-sm mt-1">{achievement.description}</p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-xs font-medium">+{achievement.points} points</span>
+                              <span className="text-xs">
+                                {new Date(ua.earned_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-8">
+                    <Medal className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">No achievements earned yet. Keep going!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Challenges Tab */}
+        {activeTab === 'challenges' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Challenges</h3>
+              <div className="space-y-4">
+                {data?.challenges && data.challenges.length > 0 ? (
+                  data.challenges.map((uc: any) => {
+                    const challenge = uc.challenge;
+                    const progress = (uc.current_progress / challenge.goal_value) * 100;
+                    return (
+                      <div key={uc.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-bold text-gray-900">{challenge.title}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{challenge.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-purple-600">
+                              +{challenge.points_reward} points
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="text-gray-600">Progress</span>
+                            <span className="font-medium">
+                              {uc.current_progress} / {challenge.goal_value}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-purple-600 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(progress, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">No active challenges. Check back soon!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Leaderboard Tab */}
+        {activeTab === 'leaderboard' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Top Users</h3>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {leaderboard.map((entry: any, index: number) => {
+                const user = entry.user;
+                const isTop3 = index < 3;
+                const rankColors = ['text-yellow-600', 'text-gray-400', 'text-orange-600'];
+                
+                return (
                   <div
-                    key={user.rank}
+                    key={entry.id}
                     className={`px-6 py-4 flex items-center justify-between ${
-                      user.isCurrentUser ? 'bg-blue-50' : ''
+                      isTop3 ? 'bg-gradient-to-r from-gray-50 to-white' : ''
                     }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="flex items-center justify-center w-8">
-                        {getRankIcon(user.rank)}
+                      <div className={`text-2xl font-bold ${isTop3 ? rankColors[index] : 'text-gray-400'}`}>
+                        {index + 1}
                       </div>
-                      <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">{user.avatar}</span>
+                      <div className="h-10 w-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold">
+                          {user?.username?.[0]?.toUpperCase() || user?.full_name?.[0]?.toUpperCase() || 'U'}
+                        </span>
                       </div>
                       <div>
-                        <p className={`text-sm font-medium ${user.isCurrentUser ? 'text-blue-900' : 'text-gray-900'}`}>
-                          {user.name} {user.isCurrentUser && '(You)'}
+                        <p className="font-medium text-gray-900">
+                          {user?.full_name || user?.username || 'User'}
                         </p>
-                        <p className="text-xs text-gray-500">{user.streak} day streak</p>
+                        <p className="text-sm text-gray-500">Level {entry.current_level}</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900">{user.points}</p>
-                        <p className="text-xs text-gray-500">points</p>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                        <span className="text-xs text-green-600">+{Math.floor(Math.random() * 50) + 10}</span>
-                      </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-purple-600">
+                        {entry.total_points.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500">points</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          </div>
-        )}
-
-        {activeTab === 'achievements' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {achievements.map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-                >
-                  <div className="flex items-center space-x-4 mb-4">
-                    <div className="text-4xl">{achievement.icon}</div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-900">{achievement.name}</h4>
-                      <p className="text-sm text-gray-600">{achievement.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">
-                      {achievement.points} points
-                    </span>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Earned
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'challenges' && (
-          <div className="space-y-6">
-            {/* Header with Create Button */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Active Challenges</h3>
-                <p className="text-sm text-gray-600">Create and manage challenges for your clients</p>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Target className="h-4 w-4 mr-2" />
-                Create Challenge
-              </button>
-            </div>
-
-            {/* Challenges Grid */}
-            {challenges.length === 0 ? (
-              <div className="text-center py-12">
-                <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No challenges yet</h3>
-                <p className="text-gray-600 mb-6">
-                  Create your first challenge to start motivating your clients
-                </p>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Target className="h-5 w-5 mr-2" />
-                  Create Your First Challenge
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {challenges.map((challenge) => {
-                  const daysRemaining = Math.ceil((challenge.endDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                  const isExpired = daysRemaining < 0;
-                  const isExpiringSoon = daysRemaining <= 7 && daysRemaining >= 0;
-
-                  return (
-                    <div
-                      key={challenge.id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-                    >
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{challenge.name}</h4>
-                          <p className="text-sm text-gray-600 mb-3">{challenge.description}</p>
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              challenge.type === 'daily' ? 'bg-green-100 text-green-800' :
-                              challenge.type === 'weekly' ? 'bg-blue-100 text-blue-800' :
-                              'bg-purple-100 text-purple-800'
-                            }`}>
-                              {challenge.type.toUpperCase()}
-                            </span>
-                            {isExpired && (
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                EXPIRED
-                              </span>
-                            )}
-                            {isExpiringSoon && !isExpired && (
-                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                ENDING SOON
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Requirements */}
-                      <div className="mb-4">
-                        <h5 className="text-sm font-medium text-gray-900 mb-2">Requirements</h5>
-                        <div className="space-y-1">
-                          {challenge.requirements.map((req, index) => (
-                            <div key={index} className="text-xs text-gray-600">
-                              • {req.value} {req.type.replace('_', ' ')} per {req.timeframe}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Rewards */}
-                      {challenge.rewards.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="text-sm font-medium text-gray-900 mb-2">Rewards</h5>
-                          <div className="space-y-1">
-                            {challenge.rewards.map((reward, index) => (
-                              <div key={index} className="text-xs text-yellow-600">
-                                • {reward.type}: {reward.value}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                        <div className="text-xs text-gray-500">
-                          {challenge.participants.length} participants
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {isExpired ? 'Expired' : `${daysRemaining} days left`}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
       </main>
-
-      {/* Challenge Creation Modal */}
-      <ChallengeCreationModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSave={(challengeData) => {
-          db.createChallenge(challengeData);
-          setIsCreateModalOpen(false);
-          // In a real app, you'd update the UI state here
-          window.location.reload(); // Simple refresh for demo
-        }}
-      />
     </div>
   );
 }

@@ -8,11 +8,28 @@ import MobileNavigation from './MobileNavigation';
 interface NavigationProps {
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
+  userName?: string;
+  userEmail?: string;
 }
 
-export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: NavigationProps) {
+export default function Navigation({ isSettingsOpen, setIsSettingsOpen, userName, userEmail }: NavigationProps) {
   const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Get user initials from name or email
+  const getUserInitials = () => {
+    if (userName) {
+      const nameParts = userName.split(' ');
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      }
+      return userName.substring(0, 2).toUpperCase();
+    }
+    if (userEmail) {
+      return userEmail.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
 
   // Initialize dark mode on mount
   useEffect(() => {
@@ -79,17 +96,7 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
           <div className="flex items-center flex-shrink-0">
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
-                <span className="text-white font-bold text-sm">E</span>
-              </div>
-              <div>
-                <h1 className="text-lg font-bold" style={{ color: isDarkMode ? '#ffffff' : '#111827' }}>
-                  ECA Health Hub
-                </h1>
-                <p className="text-xs font-medium" style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}>v2.0</p>
-              </div>
-            </div>
+            {/* Empty space for alignment */}
           </div>
 
           {/* Desktop Navigation */}
@@ -136,8 +143,12 @@ export default function Navigation({ isSettingsOpen, setIsSettingsOpen }: Naviga
               </svg>
             </button>
             
-                   <div className="h-9 w-9 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: 'var(--primary-color)' }}>
-              <span className="text-white text-sm font-bold">JS</span>
+            <div 
+              className="h-9 w-9 rounded-full flex items-center justify-center shadow-sm" 
+              style={{ backgroundColor: 'var(--primary-color)' }}
+              title={userName || userEmail || 'User'}
+            >
+              <span className="text-white text-sm font-bold">{getUserInitials()}</span>
             </div>
           </div>
         </div>

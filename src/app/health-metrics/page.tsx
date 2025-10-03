@@ -1,414 +1,291 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Activity, 
-  Heart, 
-  Moon, 
-  Droplets, 
-  Weight, 
-  Thermometer,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Plus,
-  Calendar,
-  Filter,
-  Download,
-  ChevronDown,
-  User
-} from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { db } from '@/lib/database';
-import { HealthMetric } from '@/types';
-import HabitCalendar from '@/components/HabitCalendar';
+import React, { useState, useEffect } from 'react';
+import { Activity, TrendingUp, Scale, Zap, Moon, Smile, Plus, X } from 'lucide-react';
+
+interface HealthMetric {
+  id: number;
+  user_id: number;
+  metric_type: string;
+  value: number;
+  unit: string;
+  recorded_at: string;
+  notes?: string;
+}
 
 export default function HealthMetricsPage() {
-  const [selectedMetric, setSelectedMetric] = useState<string>('energy');
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
-  const [selectedClientId, setSelectedClientId] = useState<string>('2'); // Default to John Smith
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'calendar'>('metrics');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Get all clients for the coach
-  const clients = db.getUsersByCoachId('1'); // Coach ID is '1'
-  const metrics = db.getHealthMetrics(selectedClientId);
-  const filteredMetrics = metrics.filter(metric => metric.type === selectedMetric);
-  const journalEntries = db.getJournalEntries(selectedClientId);
-  const workoutSessions = db.getWorkoutSessions ? db.getWorkoutSessions(selectedClientId) : [];
+  const [metrics, setMetrics] = useState<HealthMetric[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   
-  // Get all metrics for the selected client (for overview)
-  const allClientMetrics = metrics;
+  // Form state
+  const [formData, setFormData] = useState({
+    userId: 1, // TODO: Get from auth context
+    metricType: 'weight',
+    value: '',
+    unit: 'lbs',
+    notes: ''
+  });
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsClientDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
+  // Metric types configuration
   const metricTypes = [
-    { id: 'energy', name: 'Energy Level', icon: Activity, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
-    { id: 'fatigue', name: 'Fatigue Level', icon: TrendingDown, color: 'text-red-600', bgColor: 'bg-red-100' },
-    { id: 'recovery', name: 'Recovery Score', icon: Heart, color: 'text-green-600', bgColor: 'bg-green-100' },
-    { id: 'sleep', name: 'Sleep Hours', icon: Moon, color: 'text-blue-600', bgColor: 'bg-blue-100' },
-    { id: 'weight', name: 'Weight', icon: Weight, color: 'text-purple-600', bgColor: 'bg-purple-100' },
-    { id: 'water_intake', name: 'Water Intake', icon: Droplets, color: 'text-cyan-600', bgColor: 'bg-cyan-100' }
+    { value: 'weight', label: 'Weight', icon: Scale, unit: 'lbs', color: 'blue' },
+    { value: 'energy', label: 'Energy Level', icon: Zap, unit: '1-10', color: 'yellow' },
+    { value: 'sleep', label: 'Sleep Quality', icon: Moon, unit: '1-10', color: 'indigo' },
+    { value: 'mood', label: 'Mood', icon: Smile, unit: '1-10', color: 'green' },
+    { value: 'body_fat', label: 'Body Fat %', icon: Activity, unit: '%', color: 'purple' },
   ];
 
-  const getScoreColor = (score?: string) => {
-    switch (score) {
-      case 'green': return 'text-green-600 bg-green-100';
-      case 'yellow': return 'text-yellow-600 bg-yellow-100';
-      case 'red': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+  useEffect(() => {
+    loadMetrics();
+  }, []);
+
+  const loadMetrics = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/health-metrics?userId=1'); // TODO: Dynamic user
+      if (response.ok) {
+        const data = await response.json();
+        setMetrics(data.metrics || []);
+      }
+    } catch (error) {
+      console.error('Error loading metrics:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getScoreIcon = (score?: string) => {
-    switch (score) {
-      case 'green': return <TrendingUp className="h-4 w-4" />;
-      case 'yellow': return <Minus className="h-4 w-4" />;
-      case 'red': return <TrendingDown className="h-4 w-4" />;
-      default: return <Minus className="h-4 w-4" />;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.value) {
+      alert('Please enter a value');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch('/api/health-metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: formData.userId,
+          metricType: formData.metricType,
+          value: parseFloat(formData.value),
+          unit: formData.unit,
+          notes: formData.notes
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMetrics([data.metric, ...metrics]);
+        setFormData({
+          userId: 1,
+          metricType: 'weight',
+          value: '',
+          unit: 'lbs',
+          notes: ''
+        });
+        setShowForm(false);
+        alert('Metric saved successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving metric:', error);
+      alert('Failed to save metric');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const exportData = () => {
-    const clientName = clients.find(c => c.id === selectedClientId)?.name || 'Unknown Client';
-    
-    // Prepare CSV data
-    const csvHeaders = ['Date', 'Metric Type', 'Value', 'Score', 'Unit'];
-    const csvData = allClientMetrics.map(metric => [
-      new Date(metric.date).toLocaleDateString(),
-      metricTypes.find(m => m.id === metric.type)?.name || metric.type,
-      metric.value,
-      metric.score || 'N/A',
-      metricTypes.find(m => m.id === metric.type)?.id === 'water_intake' ? 'L' : 
-      metricTypes.find(m => m.id === metric.type)?.id === 'sleep' ? 'h' : ''
-    ]);
-    
-    const csvContent = [csvHeaders, ...csvData]
-      .map(row => row.map(field => `"${field}"`).join(','))
-      .join('\n');
-    
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${clientName}_health_metrics_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const getMetricConfig = (type: string) => {
+    return metricTypes.find(m => m.value === type) || metricTypes[0];
   };
-
-  // Prepare chart data
-  const chartData = filteredMetrics.map(metric => ({
-    date: new Date(metric.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    value: typeof metric.value === 'number' ? metric.value : parseFloat(metric.value as string) || 0,
-    score: metric.score
-  }));
-
-  const currentMetric = metricTypes.find(m => m.id === selectedMetric);
-  const latestMetric = filteredMetrics[0];
-  const averageValue = chartData.length > 0 
-    ? chartData.reduce((sum, item) => sum + item.value, 0) / chartData.length 
-    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Health Metrics</h1>
-              <p className="text-sm text-gray-600">Track and monitor your health progress</p>
+              <p className="text-sm text-gray-600">Track and monitor health data over time</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={exportData}
-                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Data
-              </button>
-            </div>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+            >
+              {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {showForm ? 'Cancel' : 'Add Metric'}
+            </button>
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Client Filter */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Client</h2>
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
-              className="flex items-center justify-between w-full max-w-xs px-4 py-3 text-left bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <div className="flex items-center space-x-3">
-                <User className="h-5 w-5 text-gray-400" />
-                <span className="font-medium text-gray-900">
-                  {clients.find(c => c.id === selectedClientId)?.name || 'Select Client'}
-                </span>
-              </div>
-              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${
-                isClientDropdownOpen ? 'rotate-180' : ''
-              }`} />
-            </button>
-            
-            {isClientDropdownOpen && (
-              <div className="absolute z-10 w-full max-w-xs mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
-                {clients.map((client) => (
-                  <button
-                    key={client.id}
-                    onClick={() => {
-                      setSelectedClientId(client.id);
-                      setIsClientDropdownOpen(false);
+        {/* Add Metric Form */}
+        {showForm && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Health Metric</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Metric Type
+                  </label>
+                  <select
+                    value={formData.metricType}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      const config = getMetricConfig(type);
+                      setFormData({ ...formData, metricType: type, unit: config.unit });
                     }}
-                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                      selectedClientId === client.id ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
-                    }`}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`h-3 w-3 rounded-full ${
-                        selectedClientId === client.id ? 'bg-blue-500' : 'bg-gray-300'
-                      }`} />
-                      <span className="font-medium">{client.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="mb-8 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-          <button
-            onClick={() => setActiveTab('metrics')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'metrics'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            📊 Metrics
-          </button>
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'calendar'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            📅 Habit Calendar
-          </button>
-        </div>
-
-        {activeTab === 'metrics' && (
-          <>
-            {/* Metric Type Selector */}
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Metric to View</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {metricTypes.map((metric) => (
-              <button
-                key={metric.id}
-                onClick={() => setSelectedMetric(metric.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedMetric === metric.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className={`p-3 rounded-lg ${metric.bgColor} mb-3`}>
-                  <metric.icon className={`h-6 w-6 ${metric.color}`} />
+                    {metricTypes.map(type => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <p className="text-sm font-medium text-gray-900">{metric.name}</p>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* All Metrics Overview */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">All Health Metrics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {metricTypes.map((metricType) => {
-              const metricData = allClientMetrics.filter(m => m.type === metricType.id);
-              const latestMetric = metricData[0]; // Most recent
-              const averageValue = metricData.length > 0 
-                ? metricData.reduce((sum, m) => sum + (typeof m.value === 'number' ? m.value : parseFloat(m.value as string) || 0), 0) / metricData.length 
-                : 0;
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Value
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Enter value"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Unit"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Add any notes about this metric..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Metric'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Metrics Display */}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            <p className="mt-2 text-gray-600">Loading metrics...</p>
+          </div>
+        ) : metrics.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+            <Activity className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Metrics Yet</h3>
+            <p className="text-gray-600 mb-4">Start tracking your health metrics by adding your first entry</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Add First Metric
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Group by metric type */}
+            {metricTypes.map(metricConfig => {
+              const typeMetrics = metrics.filter(m => m.metric_type === metricConfig.value);
+              if (typeMetrics.length === 0) return null;
+
+              const Icon = metricConfig.icon;
               
               return (
-                <div key={metricType.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${metricType.bgColor}`}>
-                      <metricType.icon className={`h-6 w-6 ${metricType.color}`} />
+                <div key={metricConfig.value} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-2 bg-${metricConfig.color}-100 rounded-lg`}>
+                      <Icon className={`h-5 w-5 text-${metricConfig.color}-600`} />
                     </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(latestMetric?.score)}`}>
-                      {getScoreIcon(latestMetric?.score)}
-                      <span className="ml-1 capitalize">{latestMetric?.score || 'No Data'}</span>
-                    </span>
+                    <h3 className="text-lg font-semibold text-gray-900">{metricConfig.label}</h3>
+                    <span className="ml-auto text-sm text-gray-500">{typeMetrics.length} entries</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {typeMetrics.slice(0, 5).map(metric => (
+                      <div key={metric.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {metric.value} <span className="text-sm font-normal text-gray-500">{metric.unit}</span>
+                            </p>
+                            {metric.notes && (
+                              <p className="text-sm text-gray-600 mt-1">{metric.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">
+                            {new Date(metric.recorded_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(metric.recorded_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   
-                  <div className="mb-2">
-                    <p className="text-sm font-medium text-gray-600">{metricType.name}</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {latestMetric ? `${latestMetric.value}${metricType.id === 'water_intake' ? 'L' : metricType.id === 'sleep' ? 'h' : ''}` : 'No Data'}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>Avg: {averageValue.toFixed(1)}{metricType.id === 'water_intake' ? 'L' : metricType.id === 'sleep' ? 'h' : ''}</span>
-                    <span>{metricData.length} entries</span>
-                  </div>
+                  {typeMetrics.length > 5 && (
+                    <button className="mt-3 text-sm text-red-600 hover:text-red-700 font-medium">
+                      View all {typeMetrics.length} entries →
+                    </button>
+                  )}
                 </div>
               );
             })}
-          </div>
-        </div>
-
-        {/* Chart */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {currentMetric?.name} Trend
-            </h3>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Metric:</label>
-                <select
-                  value={selectedMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {metricTypes.map((metric) => (
-                    <option key={metric.id} value={metric.id}>
-                      {metric.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Time Range:</label>
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value as '7d' | '30d' | '90d')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          <div className="h-80">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip 
-                      formatter={(value: number) => [value, currentMetric?.name]}
-                    labelFormatter={(label) => `Date: ${label}`}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className={`p-4 rounded-full ${currentMetric?.bgColor} mx-auto mb-4 w-16 h-16 flex items-center justify-center`}>
-                    {currentMetric?.icon && <currentMetric.icon className={`h-8 w-8 ${currentMetric.color}`} />}
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
-                  <p className="text-gray-600">
-                    No {currentMetric?.name.toLowerCase()} data found for the selected time range.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Entries */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Entries</h3>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {filteredMetrics.slice(0, 10).map((metric) => (
-              <div key={metric.id} className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className={`p-2 rounded-lg ${currentMetric?.bgColor}`}>
-                    {currentMetric && <currentMetric.icon className={`h-5 w-5 ${currentMetric.color}`} />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {new Date(metric.date).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {metric.value} {metric.unit || ''}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  {metric.notes && (
-                    <p className="text-sm text-gray-600 max-w-xs truncate">
-                      {metric.notes}
-                    </p>
-                  )}
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(metric.score)}`}>
-                    {getScoreIcon(metric.score)}
-                    <span className="ml-1 capitalize">{metric.score || 'No Score'}</span>
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-          </>
-        )}
-
-        {activeTab === 'calendar' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Habit Calendar - {clients.find(c => c.id === selectedClientId)?.name}
-            </h2>
-            <HabitCalendar 
-              journalEntries={journalEntries}
-              healthMetrics={allClientMetrics}
-              trainingLogs={workoutSessions}
-              bodyMetrics={[]}
-            />
           </div>
         )}
       </main>
