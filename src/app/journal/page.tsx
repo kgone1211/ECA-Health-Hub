@@ -21,8 +21,9 @@ import { db } from '@/lib/database';
 import { JournalEntry, HabitEntry } from '@/types';
 
 export default function JournalPage() {
-  const [userId] = useState('2'); // Client user
+  const [userId, setUserId] = useState('2'); // Client user
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const clients = db.getUsersByCoachId('1');
   const [currentEntry, setCurrentEntry] = useState<Partial<JournalEntry>>({
     gratitude: ['', '', ''],
     priorities: ['', '', ''],
