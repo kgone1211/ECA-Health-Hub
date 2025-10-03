@@ -21,18 +21,22 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { db } from '@/lib/database';
 import { HealthMetric } from '@/types';
+import HabitCalendar from '@/components/HabitCalendar';
 
 export default function HealthMetricsPage() {
   const [selectedMetric, setSelectedMetric] = useState<string>('energy');
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [selectedClientId, setSelectedClientId] = useState<string>('2'); // Default to John Smith
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'metrics' | 'calendar'>('metrics');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Get all clients for the coach
   const clients = db.getUsersByCoachId('1'); // Coach ID is '1'
   const metrics = db.getHealthMetrics(selectedClientId);
   const filteredMetrics = metrics.filter(metric => metric.type === selectedMetric);
+  const journalEntries = db.getJournalEntries(selectedClientId);
+  const workoutSessions = db.getWorkoutSessions ? db.getWorkoutSessions(selectedClientId) : [];
   
   // Get all metrics for the selected client (for overview)
   const allClientMetrics = metrics;
@@ -190,10 +194,36 @@ export default function HealthMetricsPage() {
           </div>
         </div>
 
-        {/* Metric Type Selector */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Metric to View</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Tabs */}
+        <div className="mb-8 flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('metrics')}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'metrics'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            📊 Metrics
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'calendar'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            📅 Habit Calendar
+          </button>
+        </div>
+
+        {activeTab === 'metrics' && (
+          <>
+            {/* Metric Type Selector */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Metric to View</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {metricTypes.map((metric) => (
               <button
                 key={metric.id}
@@ -365,6 +395,22 @@ export default function HealthMetricsPage() {
             ))}
           </div>
         </div>
+          </>
+        )}
+
+        {activeTab === 'calendar' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+              Habit Calendar - {clients.find(c => c.id === selectedClientId)?.name}
+            </h2>
+            <HabitCalendar 
+              journalEntries={journalEntries}
+              healthMetrics={allClientMetrics}
+              trainingLogs={workoutSessions}
+              bodyMetrics={[]}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
