@@ -28,6 +28,9 @@ export default function WorkoutsPage() {
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | undefined>();
   const [selectedClientName, setSelectedClientName] = useState('John Smith');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [templateToAssign, setTemplateToAssign] = useState<WorkoutTemplate | null>(null);
+  const [assignToClients, setAssignToClients] = useState<string[]>([]);
 
   const clients = db.getUsersByCoachId('1');
   const templates = db.getWorkoutTemplatesByCoach('1').filter(template => 
@@ -87,6 +90,42 @@ export default function WorkoutsPage() {
   const handleDeleteTemplate = (templateId: string) => {
     if (confirm('Are you sure you want to delete this workout template?')) {
       db.deleteWorkoutTemplate(templateId);
+    }
+  };
+
+  const handleAssignToClients = (template: WorkoutTemplate) => {
+    setTemplateToAssign(template);
+    setAssignToClients([]);
+    setShowAssignModal(true);
+  };
+
+  const handleSaveAssignments = () => {
+    if (templateToAssign && assignToClients.length > 0) {
+      assignToClients.forEach(clientId => {
+        const duplicatedTemplate = {
+          ...templateToAssign,
+          name: templateToAssign.name,
+          clientId: clientId,
+          coachId: '1'
+        };
+        delete (duplicatedTemplate as any).id;
+        delete (duplicatedTemplate as any).createdAt;
+        delete (duplicatedTemplate as any).updatedAt;
+        db.createWorkoutTemplate(duplicatedTemplate);
+      });
+      
+      setShowAssignModal(false);
+      setTemplateToAssign(null);
+      setAssignToClients([]);
+      alert(`Template assigned to ${assignToClients.length} client(s)!`);
+    }
+  };
+
+  const toggleClientSelection = (clientId: string) => {
+    if (assignToClients.includes(clientId)) {
+      setAssignToClients(assignToClients.filter(id => id !== clientId));
+    } else {
+      setAssignToClients([...assignToClients, clientId]);
     }
   };
 
@@ -391,6 +430,13 @@ export default function WorkoutsPage() {
                           <Copy className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => handleAssignToClients(template)}
+                          className="p-1 text-gray-400 hover:text-purple-600"
+                          title="Assign to Clients"
+                        >
+                          <Users className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteTemplate(template.id)}
                           className="p-1 text-gray-400 hover:text-red-600"
                           title="Delete"
@@ -419,6 +465,72 @@ export default function WorkoutsPage() {
           }}
           existingTemplate={editingTemplate}
         />
+      )}
+
+      {/* Assign to Clients Modal */}
+      {showAssignModal && templateToAssign && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Assign Template to Clients
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Template: <span className="font-semibold">{templateToAssign.name}</span>
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Clients ({assignToClients.length} selected)
+              </label>
+              <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
+                {clients.filter(c => c.id !== selectedClientId).map((client) => (
+                  <label
+                    key={client.id}
+                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={assignToClients.includes(client.id)}
+                      onChange={() => toggleClientSelection(client.id)}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-medium">
+                          {client.name.split(' ').map((n: string) => n[0]).join('')}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{client.name}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Note: This will create a copy of the template for each selected client
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSaveAssignments}
+                disabled={assignToClients.length === 0}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Assign to {assignToClients.length} Client{assignToClients.length !== 1 ? 's' : ''}
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setTemplateToAssign(null);
+                  setAssignToClients([]);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
